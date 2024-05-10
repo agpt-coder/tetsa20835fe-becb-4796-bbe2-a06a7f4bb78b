@@ -1,0 +1,179 @@
+// datasource db defines the database connection settings.
+// It is configured for PostgreSQL and uses an environment variable for the connection URL.
+// The 'extensions' feature enables the use of PostgreSQL-specific data types.
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+}
+
+// generator db configures Prisma Client settings.
+// It is set up to use Prisma Client Python with asyncio interface and specific features.
+generator db {
+  provider                    = "prisma-client-py"
+  interface                   = "asyncio"
+  recursive_type_depth        = 5
+  previewFeatures             = ["postgresqlExtensions"]
+  enable_experimental_decimal = true
+}
+
+model User {
+  id             Int           @id @default(autoincrement())
+  email          String        @unique
+  hashedPassword String
+  role           Role
+  profile        Profile?
+  staffDetails   StaffDetails? @relation(name: "UserToStaffDetails")
+  ordersPlaced   Order[]       @relation("OrdersPlacedByUser")
+  transactions   Transaction[] @relation(name: "UserTransactions")
+}
+
+model Profile {
+  id        Int     @id @default(autoincrement())
+  firstName String
+  lastName  String
+  phone     String?
+  userId    Int     @unique
+  user      User    @relation(fields: [userId], references: [id])
+}
+
+model StaffDetails {
+  id        Int        @id @default(autoincrement())
+  userId    Int        @unique
+  user      User       @relation(name: "UserToStaffDetails", fields: [userId], references: [id])
+  payroll   Payroll?
+  reviews   Review[]
+  schedules Schedule[]
+}
+
+model Payroll {
+  id             Int          @id @default(autoincrement())
+  salary         Float
+  taxCode        String
+  staffDetailsId Int          @unique
+  staffDetails   StaffDetails @relation(fields: [staffDetailsId], references: [id])
+}
+
+model Schedule {
+  id             Int          @id @default(autoincrement())
+  date           DateTime
+  activityType   ActivityType
+  staffDetailsId Int
+  staffDetails   StaffDetails @relation(fields: [staffDetailsId], references: [id])
+  fieldId        Int?
+  field          Field?       @relation(fields: [fieldId], references: [id])
+}
+
+model Review {
+  id             Int          @id @default(autoincrement())
+  date           DateTime
+  performance    String
+  feedback       String
+  staffDetailsId Int
+  staffDetails   StaffDetails @relation(fields: [staffDetailsId], references: [id])
+}
+
+model InventoryItem {
+  id           Int             @id @default(autoincrement())
+  name         String
+  quantity     Int
+  status       InventoryStatus
+  type         InventoryType
+  transactions Transaction[]   @relation(name: "InventoryTransactions")
+}
+
+model Transaction {
+  id              Int             @id @default(autoincrement())
+  type            TransactionType
+  date            DateTime
+  amount          Float
+  inventoryItemId Int?
+  inventoryItem   InventoryItem?  @relation(name: "InventoryTransactions", fields: [inventoryItemId], references: [id])
+  orderId         Int?
+  order           Order?          @relation(name: "OrderTransactions", fields: [orderId], references: [id])
+  userId          Int?
+  user            User?           @relation(name: "UserTransactions", fields: [userId], references: [id])
+}
+
+model Customer {
+  id      Int     @id @default(autoincrement())
+  name    String
+  email   String  @unique
+  phone   String?
+  address String?
+  orders  Order[] @relation(name: "CustomerOrders")
+}
+
+model Order {
+  id           Int           @id @default(autoincrement())
+  date         DateTime
+  total        Float
+  status       OrderStatus
+  customerId   Int
+  customer     Customer      @relation(name: "CustomerOrders", fields: [customerId], references: [id])
+  placedBy     Int?
+  user         User?         @relation(name: "OrdersPlacedByUser", fields: [placedBy], references: [id])
+  transactions Transaction[] @relation(name: "OrderTransactions")
+}
+
+model Field {
+  id         Int            @id @default(autoincrement())
+  name       String
+  areaSize   Float
+  mapUrl     String
+  condition  FieldCondition
+  activities Schedule[]
+}
+
+model Report {
+  id      Int      @id @default(autoincrement())
+  title   String
+  content String
+  date    DateTime
+}
+
+enum Role {
+  Admin
+  Staff
+  Manager
+  Accountant
+  HR
+  FieldWorker
+}
+
+enum ActivityType {
+  Planting
+  Harvesting
+  Delivery
+}
+
+enum InventoryStatus {
+  InStock
+  LowStock
+  OutOfStock
+}
+
+enum InventoryType {
+  Fertilizer
+  Sapling
+  Harvester
+  Truck
+}
+
+enum TransactionType {
+  Purchase
+  Sale
+  Expense
+}
+
+enum OrderStatus {
+  Placed
+  Dispatched
+  Delivered
+  Cancelled
+}
+
+enum FieldCondition {
+  Healthy
+  NeedsAttention
+  Critical
+}
